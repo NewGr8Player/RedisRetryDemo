@@ -1,32 +1,37 @@
-package com.xavier.retryable.redisretrydemo.service;
+package com.xavier.retryable.redisretrydemo.service.redis;
 
 import com.xavier.retryable.redisretrydemo.config.RedisConfig;
-import com.xavier.retryable.redisretrydemo.entity.EmailInfoEntity;
+import com.xavier.retryable.redisretrydemo.entity.MailInfoEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 @Slf4j
 @Service
 @Transactional
 public class RedisProviderService {
 
-    private RedisTemplate<String, EmailInfoEntity> redisTemplate;
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 将消息传入Redis消息队列
      *
-     * @param emailInfoEntity 邮件信息
+     * @param mailInfoEntity 邮件信息
      */
-    public void publishMessage(EmailInfoEntity emailInfoEntity) {
-        redisTemplate.opsForStream().add(ObjectRecord.create(RedisConfig.REDIS_MAIL_STREAM_KEY_NAME, emailInfoEntity));
+    public void publishMessage(MailInfoEntity mailInfoEntity) {
+        stringRedisTemplate.opsForStream().add(ObjectRecord.create(RedisConfig.REDIS_MAIL_STREAM_KEY_NAME, Map.of(
+                mailInfoEntity.getId(),
+                mailInfoEntity.toJson()
+        )));
     }
 
     @Autowired
-    public void setRedisTemplate(RedisTemplate<String, EmailInfoEntity> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+    public void setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 }

@@ -1,6 +1,6 @@
-package com.xavier.retryable.redisretrydemo.service;
+package com.xavier.retryable.redisretrydemo.service.mail;
 
-import com.xavier.retryable.redisretrydemo.entity.EmailInfoEntity;
+import com.xavier.retryable.redisretrydemo.entity.MailInfoEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class MailSenderHistoryService {
-    public void save(EmailInfoEntity emailInfoEntity) {
-        log.info("Save to database -> {}", emailInfoEntity);
+    public void save(MailInfoEntity mailInfoEntity) {
+        log.info("Save to database -> {}", mailInfoEntity);
     }
 }

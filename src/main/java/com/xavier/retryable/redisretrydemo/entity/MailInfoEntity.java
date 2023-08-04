@@ -1,5 +1,6 @@
 package com.xavier.retryable.redisretrydemo.entity;
 
+import com.alibaba.fastjson.JSON;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,7 @@ import java.util.Objects;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmailInfoEntity implements Serializable {
+public class MailInfoEntity implements Serializable {
 
     /**
      * 原始的数据Id
@@ -36,15 +37,12 @@ public class EmailInfoEntity implements Serializable {
     private String content;
 
     /**
-     * 重试次数
+     * 重试备注
      */
-    private Integer cnt;
+    private String retryComment;
 
-    public void increase() {
-        if (Objects.isNull(cnt)) {
-            cnt = 0;
-        }
-        cnt++;
+    public String toJson() {
+        return JSON.toJSONString(this);
     }
 
     @Override
@@ -54,7 +52,7 @@ public class EmailInfoEntity implements Serializable {
                 .append("to", to)
                 .append("subject", subject)
                 .append("content", content)
-                .append("cnt", cnt)
+                .append("retryComment", retryComment)
                 .toString();
     }
 }
