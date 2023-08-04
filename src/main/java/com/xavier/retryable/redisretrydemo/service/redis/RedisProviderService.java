@@ -5,6 +5,8 @@ import com.xavier.retryable.redisretrydemo.entity.MailInfoEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
+import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +26,12 @@ public class RedisProviderService {
      * @param mailInfoEntity 邮件信息
      */
     public void publishMessage(MailInfoEntity mailInfoEntity) {
-        stringRedisTemplate.opsForStream().add(ObjectRecord.create(RedisConfig.REDIS_MAIL_STREAM_KEY_NAME, Map.of(
-                mailInfoEntity.getId(),
-                mailInfoEntity.toJson()
-        )));
+        stringRedisTemplate.opsForStream().add(
+                StreamRecords.newRecord()
+                        .in(RedisConfig.REDIS_MAIL_STREAM_KEY_NAME)
+                        .ofObject(mailInfoEntity)
+                        .withId(RecordId.autoGenerate())
+        );
     }
 
     @Autowired

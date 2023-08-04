@@ -1,5 +1,6 @@
 package com.xavier.retryable.redisretrydemo.config;
 
+import com.alibaba.fastjson.support.spring.FastJsonRedisSerializer;
 import com.xavier.retryable.redisretrydemo.entity.MailInfoEntity;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

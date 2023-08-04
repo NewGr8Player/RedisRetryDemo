@@ -1,7 +1,7 @@
 package com.xavier.retryable.redisretrydemo.service.redis;
 
-import com.alibaba.fastjson.JSON;
 import com.xavier.retryable.redisretrydemo.config.RedisConfig;
+import com.xavier.retryable.redisretrydemo.config.RetryProperties;
 import com.xavier.retryable.redisretrydemo.entity.MailInfoEntity;
 import com.xavier.retryable.redisretrydemo.service.event.EventPublisherService;
 import com.xavier.retryable.redisretrydemo.service.mail.MailSenderHistoryService;
@@ -10,7 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.connection.stream.ObjectRecord;
+import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
@@ -18,8 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 @Slf4j
@@ -39,14 +42,17 @@ public class RedisConsumerService {
 
     private EventPublisherService eventPublisherService;
 
+    private RetryProperties retryProperties;
+
     @PostConstruct
     public void init() {
-        StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, MapRecord<String, String, String>> options =
+        StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, ObjectRecord<String, MailInfoEntity>> options =
                 StreamMessageListenerContainer.StreamMessageListenerContainerOptions
                         .builder()
+                        .targetType(MailInfoEntity.class)
                         .build();
 
-        StreamMessageListenerContainer<String, MapRecord<String, String, String>> listenerContainer = StreamMessageListenerContainer.create(
+        StreamMessageListenerContainer<String, ObjectRecord<String, MailInfoEntity>> listenerContainer = StreamMessageListenerContainer.create(
                 connectionFactory,
                 options
         );
@@ -59,33 +65,28 @@ public class RedisConsumerService {
         listenerContainer.start();
     }
 
-    public void messageHandler(MapRecord<String, String, String> message) {
+    public void messageHandler(ObjectRecord<String, MailInfoEntity> message) {
         log.info("Receive -> {}", message);
 
-        Map<String, String> msgMap = message.getValue();
-        msgMap.forEach(
-                (key, jsonStr) -> {
-                    MailInfoEntity mailInfoEntity = JSON.parseObject(jsonStr, MailInfoEntity.class);
-                    if (!mailSenderService.send(mailInfoEntity)) {/* 发送失败 */
-                        long currentCnt = longRedisTemplate.opsForValue().increment(key);
-                        if (currentCnt <= 15L) { // TODO 重试次数
-                            new Timer().schedule(new TimerTask() {
-                                @Override
-                                public void run() {
-                                    log.info("进行第{}次重试...{} - {}", currentCnt, mailInfoEntity.getTo(), mailInfoEntity.getSubject());
-                                    eventPublisherService.publishEvent(mailInfoEntity);
-                                }
-                            }, 5000); // TODO 延时:ms，改为配置
-                        } else {
-                            log.info("最终失败逻辑");
-                            mailInfoEntity.setRetryComment("最终失败逻辑");
-                            mailSenderHistoryService.save(mailInfoEntity);
-                            eventPublisherService.publishEvent(mailInfoEntity.getId());
-                        }
+        MailInfoEntity mailInfoEntity = message.getValue();
+        if (!mailSenderService.send(mailInfoEntity)) {/* 发送失败 */
+            long currentCnt = Optional.ofNullable(longRedisTemplate.opsForValue().increment(mailInfoEntity.getId())).orElse(1L);
+            if (currentCnt <= retryProperties.getTimes()) {
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        log.info("进行第{}次重试...{} - {}", currentCnt, mailInfoEntity.getTo(), mailInfoEntity.getSubject());
+                        eventPublisherService.publishEvent(mailInfoEntity);
                     }
-                    stringRedisTemplate.opsForStream().delete(message); /* 成功消费后从Redis中删除 */
-                }
-        );
+                }, retryProperties.getDuration());
+            } else {
+                log.info("最终失败逻辑");
+                mailInfoEntity.setRetryComment("最终失败逻辑");
+                mailSenderHistoryService.save(mailInfoEntity);
+                eventPublisherService.publishEvent(mailInfoEntity.getId());
+            }
+        }
+        stringRedisTemplate.opsForStream().delete(message); /* 成功消费后从Redis中删除 */
 
     }
 
@@ -112,6 +113,11 @@ public class RedisConsumerService {
     @Autowired
     public void setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
         this.stringRedisTemplate = stringRedisTemplate;
+    }
+
+    @Autowired
+    public void setRetryProperties(RetryProperties retryProperties) {
+        this.retryProperties = retryProperties;
     }
 
     @Autowired

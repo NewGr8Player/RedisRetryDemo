@@ -14,3 +14,8 @@ spring:
         max-wait: 5000ms
   application:
     name: RedisStreamDemo
+mail:
+  sender:
+    retry:
+      times: 15
+      duration: 5000 # ms

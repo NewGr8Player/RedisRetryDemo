@@ -19,13 +19,13 @@ public class EventPublisherService {
 
     public void publishEvent(MailInfoEntity mailInfo) {
         String eventId = UUID.randomUUID().toString();
-        log.info("发布事件 -> {}", eventId);
+        log.info("发布MailEvent -> {}", eventId);
         applicationEventPublisher.publishEvent(new MailEventEntity(eventId, mailInfo));
     }
 
     public void publishEvent(String bizId) {
         String eventId = UUID.randomUUID().toString();
-        log.info("发布事件 -> {}", eventId);
+        log.info("发布FinishedEvent -> {}", eventId);
         applicationEventPublisher.publishEvent(new FinishedEventEntity(eventId, bizId));
     }
 
